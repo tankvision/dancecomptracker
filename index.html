@@ -76,6 +76,27 @@
   .eta-time{font-weight:800;font-size:18px;background:var(--surface2);border:1px solid var(--line);
     padding:7px 13px;border-radius:9px;color:var(--text);}
   .hero-empty{font-size:18px;font-weight:700;color:var(--muted);padding:6px 0;}
+  .hero-break-note{font-size:12px;color:var(--gold);font-weight:600;margin-top:8px;}
+
+  /* break / awards divider in the dance list */
+  .brk{display:flex;align-items:center;gap:9px;margin:11px 2px;padding:10px 13px;border-radius:11px;
+    background:rgba(246,194,71,.07);border:1px dashed var(--gold-dim);}
+  .brk .b-ico{font-size:14px;}
+  .brk .b-name{font-size:12.5px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:var(--gold);}
+  .brk .b-mins{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--text);}
+  .brk.awards{background:rgba(246,194,71,.11);}
+
+  /* break entry */
+  .seg{display:flex;gap:8px;margin-bottom:10px;}
+  .seg button{flex:1;background:var(--surface2);border:1px solid var(--line);color:var(--muted);
+    font-weight:700;font-size:14px;padding:11px;border-radius:10px;}
+  .seg button.on{background:var(--gold);color:#1a1300;border-color:transparent;}
+  .brk-row{display:flex;align-items:center;background:var(--surface);border:1px solid var(--line);
+    border-radius:11px;padding:11px 13px;margin-bottom:8px;}
+  .brk-row .br-main{flex:1;}
+  .brk-row .br-after{font-size:12px;color:var(--muted);font-weight:700;}
+  .brk-row .br-type{font-weight:700;font-size:15px;margin-top:1px;}
+  .brk-row .br-min{font-size:13px;color:var(--muted);font-weight:700;margin-right:4px;}
 
   .live-pill{display:inline-flex;align-items:center;gap:7px;background:var(--live);color:#fff;
     font-weight:800;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;padding:5px 10px;border-radius:999px;
@@ -263,6 +284,23 @@
     <button id="addBtn" class="add-btn" disabled>Add dance</button>
   </div>
 
+  <!-- Breaks & awards -->
+  <div class="sec-head">
+    <h2>Breaks &amp; awards</h2>
+  </div>
+  <div class="card">
+    <div class="seg">
+      <button id="segJudges" class="on" data-type="judges">Judges break</button>
+      <button id="segAwards" data-type="awards">Awards</button>
+    </div>
+    <div class="form-row">
+      <input id="brkAfter" class="fld num" type="number" inputmode="numeric" placeholder="after #">
+      <input id="brkMin" class="fld" type="number" inputmode="numeric" placeholder="minutes" style="text-align:center;font-weight:800;">
+    </div>
+    <button id="addBrkBtn" class="add-btn" disabled>Add break</button>
+    <div id="brkList" style="margin-top:12px;"></div>
+  </div>
+
   <!-- Dance list -->
   <div class="sec-head">
     <h2>Dances</h2>
@@ -299,7 +337,7 @@
 
   // ----- State -----
   var state = blank();
-  var ui = { selectedDancer:null };
+  var ui = { selectedDancer:null, breakType:"judges" };
 
   function blank(){
     return {
@@ -307,7 +345,8 @@
       currentNumber:0, avgMin:3, totalDances:0,
       anchorTime:null,           // ISO string of when currentNumber was last set
       dancers:[],                // {id,name,color}
-      dances:[]                  // {id,number,name,dancerId,studio}
+      dances:[],                 // {id,number,name,dancerId,studio}
+      breaks:[]                  // {id,afterNumber,type:'judges'|'awards',minutes}
     };
   }
 
@@ -318,6 +357,7 @@
     }catch(e){}
     if(!Array.isArray(state.dancers)) state.dancers=[];
     if(!Array.isArray(state.dances)) state.dances=[];
+    if(!Array.isArray(state.breaks)) state.breaks=[];
     if(typeof state.avgMin!=="number"||!state.avgMin) state.avgMin=3;
   }
   function save(){
@@ -337,11 +377,21 @@
     var mm = m<10 ? "0"+m : ""+m;
     return safe(hh+":"+mm+" "+ap);
   }
+  // sum of scheduled break/awards minutes that fall between "now" and a given dance number
+  function breakMinsBefore(number){
+    var total = 0;
+    for(var i=0;i<state.breaks.length;i++){
+      var b = state.breaks[i];
+      if(b.afterNumber>=state.currentNumber && b.afterNumber<number){ total += (+b.minutes||0); }
+    }
+    return total;
+  }
   function etaFor(number){
     if(!state.anchorTime) return null;
     var togo = number - state.currentNumber;
     if(togo<0) return null;
-    var t = new Date(new Date(state.anchorTime).getTime() + togo*state.avgMin*60000);
+    var extra = breakMinsBefore(number);
+    var t = new Date(new Date(state.anchorTime).getTime() + (togo*state.avgMin + extra)*60000);
     return fmtClock(t);
   }
   function freshnessText(){
@@ -368,6 +418,8 @@
     renderHero();
     renderSummary();
     renderDancerChips();
+    renderBreakForm();
+    renderBreakList();
     renderList();
     updateAddBtn();
   }
@@ -423,6 +475,9 @@
     var dn = dancerById(n.dancerId);
     var togo = n.number - state.currentNumber;
     var eta = etaFor(n.number);
+    var brkMins = breakMinsBefore(n.number);
+    var brkNote = (eta && brkMins>0)
+      ? '<div class="hero-break-note">includes '+brkMins+' min of breaks before your dancer</div>' : '';
     hero.innerHTML =
       '<div class="hero-accent" style="background:'+(dn?dn.color:"var(--gold)")+'"></div>'+
       '<div class="hero-top">'+
@@ -436,7 +491,7 @@
         '<div class="togo-box"><div class="togo-num">'+comma(togo)+'</div><div class="togo-cap">to go</div></div>'+
       '</div>'+
       (eta
-        ? '<div class="hero-eta-row"><span class="eta-lbl">around</span><span class="eta-time">'+eta+'</span></div>'
+        ? '<div class="hero-eta-row"><span class="eta-lbl">around</span><span class="eta-time">'+eta+'</span></div>'+brkNote
         : '<div class="hero-eta-row"><span class="eta-lbl" style="color:var(--muted2)">set “now on” for an ETA</span></div>');
   }
 
@@ -479,7 +534,17 @@
     var upcoming = sorted.filter(function(d){ return d.number>=state.currentNumber; });
     var done = sorted.filter(function(d){ return d.number<state.currentNumber; }).reverse(); // most recent first
 
-    upcoming.forEach(function(d){ list.appendChild(danceRow(d)); });
+    // pending breaks between now and the last upcoming dance, sorted by position
+    var pending = state.breaks.filter(function(b){ return b.afterNumber>=state.currentNumber; })
+                              .sort(function(a,b){ return a.afterNumber-b.afterNumber; });
+    var bi = 0;
+    upcoming.forEach(function(d){
+      // drop in any break that sits before this dance (afterNumber < d.number)
+      while(bi<pending.length && pending[bi].afterNumber < d.number){
+        list.appendChild(breakDivider(pending[bi])); bi++;
+      }
+      list.appendChild(danceRow(d));
+    });
     if(done.length){
       var sep = document.createElement("div");
       sep.className = "done-sep";
@@ -487,6 +552,17 @@
       list.appendChild(sep);
       done.forEach(function(d){ list.appendChild(danceRow(d)); });
     }
+  }
+
+  function breakDivider(b){
+    var isAwards = b.type==="awards";
+    var div = document.createElement("div");
+    div.className = "brk"+(isAwards?" awards":"");
+    div.innerHTML =
+      '<span class="b-ico">'+(isAwards?"\uD83C\uDFC6":"\u23F8")+'</span>'+
+      '<span class="b-name">'+(isAwards?"Awards":"Judges break")+'</span>'+
+      '<span class="b-mins">'+ (+b.minutes||0) +' min</span>';
+    return div;
   }
 
   function danceRow(d){
@@ -536,6 +612,40 @@
     $("addBtn").disabled = !(num!=="" && name!=="");
   }
 
+  function updateBrkBtn(){
+    var after = $("brkAfter").value.trim();
+    var min = $("brkMin").value.trim();
+    $("addBrkBtn").disabled = !(after!=="" && min!=="");
+  }
+
+  function renderBreakForm(){
+    $("segJudges").className = ui.breakType==="judges" ? "on" : "";
+    $("segAwards").className = ui.breakType==="awards" ? "on" : "";
+    // suggest a default duration in the placeholder for the chosen type
+    $("brkMin").placeholder = ui.breakType==="awards" ? "minutes (≈30)" : "minutes (≈15)";
+  }
+
+  function renderBreakList(){
+    var box = $("brkList");
+    box.innerHTML = "";
+    if(!state.breaks.length) return;
+    var sorted = state.breaks.slice().sort(function(a,b){ return a.afterNumber-b.afterNumber; });
+    sorted.forEach(function(b){
+      var row = document.createElement("div");
+      row.className = "brk-row";
+      row.innerHTML =
+        '<div class="br-main"><div class="br-after">after #'+b.afterNumber+'</div>'+
+        '<div class="br-type">'+(b.type==="awards"?"\uD83C\uDFC6 Awards":"\u23F8 Judges break")+'</div></div>'+
+        '<span class="br-min">'+(+b.minutes||0)+' min</span>'+
+        '<button class="x-del" aria-label="Delete">\u00D7</button>';
+      row.querySelector(".x-del").onclick = function(){
+        state.breaks = state.breaks.filter(function(x){ return x.id!==b.id; });
+        save(); render(); toast("Removed");
+      };
+      box.appendChild(row);
+    });
+  }
+
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
 
@@ -551,6 +661,16 @@
     save(); render();
     $("inNum").focus();
     toast("Added #"+num);
+  }
+
+  function addBreak(){
+    var after = parseInt($("brkAfter").value,10);
+    var min = parseInt($("brkMin").value,10);
+    if(isNaN(after) || isNaN(min)) return;
+    state.breaks.push({ id:uid(), afterNumber:after, type:ui.breakType, minutes:Math.max(0,min) });
+    $("brkAfter").value = ""; $("brkMin").value = "";
+    save(); render();
+    toast((ui.breakType==="awards"?"Awards":"Break")+" added after #"+after);
   }
 
   function setNowOn(n){
@@ -708,7 +828,17 @@
     lines.push("");
     var sorted = state.dances.slice().sort(function(a,b){ return a.number-b.number; });
     if(!sorted.length){ lines.push("(no dances added yet)"); }
-    sorted.forEach(function(d){
+    // merge dances and breaks into one ordered schedule (break sorts just after its afterNumber)
+    var items = [];
+    sorted.forEach(function(d){ items.push({ key:d.number, kind:"dance", d:d }); });
+    state.breaks.forEach(function(b){ items.push({ key:b.afterNumber+0.5, kind:"break", b:b }); });
+    items.sort(function(a,b){ return a.key-b.key; });
+    items.forEach(function(it){
+      if(it.kind==="break"){
+        lines.push("   — "+(it.b.type==="awards"?"Awards":"Judges break")+", "+(+it.b.minutes||0)+" min (after #"+it.b.afterNumber+") —");
+        return;
+      }
+      var d = it.d;
       var dc = dancerById(d.dancerId);
       var who = dc?dc.name:"";
       var status;
@@ -769,14 +899,21 @@
     $("inName").addEventListener("keydown", function(e){ if(e.key==="Enter" && !$("addBtn").disabled){ addDance(); } });
     $("addBtn").onclick = addDance;
 
+    $("segJudges").onclick = function(){ ui.breakType="judges"; renderBreakForm(); };
+    $("segAwards").onclick = function(){ ui.breakType="awards"; renderBreakForm(); };
+    $("brkAfter").addEventListener("input", updateBrkBtn);
+    $("brkMin").addEventListener("input", updateBrkBtn);
+    $("brkMin").addEventListener("keydown", function(e){ if(e.key==="Enter" && !$("addBrkBtn").disabled){ addBreak(); } });
+    $("addBrkBtn").onclick = addBreak;
+
     $("copyBtn").onclick = copySummary;
     $("backupBtn").onclick = backupModal;
     $("restoreBtn").onclick = restoreModal;
     $("resetBtn").onclick = function(){
       confirmModal("Start a new competition?",
-        "This clears the current number, all dances, and dancers. Back up first if you want to keep this one.",
+        "This clears the current number, all dances, dancers, and breaks. Back up first if you want to keep this one.",
         "Clear it", true, function(){
-          state = blank(); ui.selectedDancer=null; save(); render(); toast("Ready for a new comp");
+          state = blank(); ui.selectedDancer=null; ui.breakType="judges"; save(); render(); toast("Ready for a new comp");
         });
     };
 
