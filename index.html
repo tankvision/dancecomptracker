@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Stops iOS from turning clock times / numbers into tappable calendar & phone links -->
+<meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Dance Day</title>
+<style>
+  :root{
+    --bg:#0E0B14;          /* deep stage dark */
+    --surface:#1A1524;
+    --surface2:#241D33;
+    --line:#322a45;
+    --text:#F3EEFB;
+    --muted:#9b90b4;
+    --muted2:#6f6589;
+    --gold:#F6C247;        /* spotlight / live accent */
+    --gold-dim:#5a4a1d;
+    --danger:#ff6b6b;
+    --live:#FF3B5C;        /* on-stage / live indicator */
+    --ok:#7CE0A0;
+    --radius:16px;
+    --tap:48px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:16px;line-height:1.4;
+    padding:env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 24px);
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:560px;margin:0 auto;padding:0 14px;}
+  h1,h2,h3{margin:0;font-weight:800;letter-spacing:-0.01em;}
+  button{font-family:inherit;cursor:pointer;border:none;color:inherit;}
+  input{font-family:inherit;}
+
+  /* ---------- Header ---------- */
+  header{padding:18px 2px 10px;}
+  .eyebrow{font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);font-weight:700;}
+  .comp-name{font-size:24px;line-height:1.1;margin-top:4px;border:none;background:none;color:var(--text);
+    font-weight:800;width:100%;padding:2px 0;}
+  .comp-name::placeholder{color:var(--muted2);}
+  .comp-dates{font-size:13px;color:var(--muted);background:none;border:none;width:100%;padding:2px 0;margin-top:2px;}
+  .comp-dates::placeholder{color:var(--muted2);}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;margin:12px 0;}
+  .label{font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);font-weight:700;}
+
+  /* ---------- Hero: UP NEXT ---------- */
+  .hero{position:relative;overflow:hidden;padding:18px 18px 18px;border-width:1px;}
+  .hero .label{margin-bottom:10px;}
+  .hero-accent{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--gold);}
+  .hero-dancer{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;margin-bottom:2px;}
+  .dot{width:11px;height:11px;border-radius:50%;flex:none;}
+  .hero-dance{font-size:22px;font-weight:800;line-height:1.15;margin:2px 0 0;}
+  .hero-num{color:var(--muted);font-weight:700;}
+  .hero-row{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;}
+  .togo-box{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-width:120px;background:var(--surface2);border:1px solid var(--line);border-radius:16px;padding:12px 10px;}
+  .togo-num{font-size:62px;font-weight:800;line-height:1;letter-spacing:-0.03em;}
+  .togo-cap{font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-top:4px;font-weight:700;}
+  /* text + tall box on top, ETA strip across the bottom */
+  .hero-top{display:flex;align-items:stretch;justify-content:space-between;gap:16px;}
+  .hero-left{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;}
+  .hero-left .label{margin-bottom:8px;}
+  .hero-eta-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    margin-top:16px;padding-top:14px;border-top:1px solid var(--line);}
+  .eta-lbl{font-size:13px;color:var(--muted);font-weight:600;}
+  .eta-time{font-weight:800;font-size:18px;background:var(--surface2);border:1px solid var(--line);
+    padding:7px 13px;border-radius:9px;color:var(--text);}
+  .hero-empty{font-size:18px;font-weight:700;color:var(--muted);padding:6px 0;}
+
+  .live-pill{display:inline-flex;align-items:center;gap:7px;background:var(--live);color:#fff;
+    font-weight:800;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;padding:5px 10px;border-radius:999px;
+    box-shadow:0 0 14px rgba(255,59,92,.4);}
+  .live-pill.big{font-size:14px;padding:9px 15px;letter-spacing:0.12em;box-shadow:0 0 22px rgba(255,59,92,.55);}
+  .live-pill .pulse{width:8px;height:8px;border-radius:50%;background:#fff;animation:pulse 1.1s infinite;}
+  .hero.onstage{border-color:var(--live);box-shadow:0 0 0 1px var(--live),0 0 34px rgba(255,59,92,.26);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+
+  /* ---------- Now On control ---------- */
+  .nowon-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .stepper{display:flex;align-items:center;gap:14px;justify-content:center;}
+  .step-btn{width:56px;height:56px;border-radius:50%;background:var(--surface2);border:1px solid var(--line);
+    font-size:28px;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:center;}
+  .step-btn:active{background:var(--line);}
+  .nowon-num{font-size:52px;font-weight:800;letter-spacing:-0.03em;min-width:120px;text-align:center;
+    background:none;border:none;color:var(--text);padding:0;}
+  .nowon-hint{text-align:center;font-size:12px;color:var(--muted2);margin-top:8px;}
+  .nowon-meta{display:flex;align-items:center;justify-content:space-between;margin-top:14px;
+    padding-top:12px;border-top:1px solid var(--line);gap:10px;}
+  .freshness{font-size:12px;color:var(--muted);}
+  .avg-edit{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);}
+  .avg-edit input{width:48px;background:var(--surface2);border:1px solid var(--line);border-radius:8px;
+    color:var(--text);font-weight:700;text-align:center;padding:6px 4px;font-size:15px;}
+
+  /* ---------- Comp progress ---------- */
+  .progress-wrap{margin-top:14px;}
+  .prog-tap{display:block;width:100%;background:none;border:none;text-align:left;padding:0;}
+  .prog-label{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;
+    color:var(--muted);margin-bottom:7px;font-weight:700;}
+  .prog-label b{color:var(--text);}
+  .prog-track{height:8px;background:var(--surface2);border-radius:999px;overflow:hidden;}
+  .prog-fill{height:100%;background:var(--gold);border-radius:999px;transition:width .25s;}
+  .set-total{background:none;border:1px dashed var(--line);color:var(--muted);font-size:13px;
+    font-weight:700;padding:9px 12px;border-radius:10px;width:100%;}
+  .set-total:active{background:var(--surface2);}
+
+  /* ---------- Summary chips ---------- */
+  .summary{display:flex;gap:8px;margin:4px 0 2px;}
+  .schip{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:10px 6px;text-align:center;}
+  .schip .n{font-size:22px;font-weight:800;line-height:1;}
+  .schip .c{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-top:4px;font-weight:700;}
+
+  /* ---------- Section header ---------- */
+  .sec-head{display:flex;align-items:center;justify-content:space-between;margin:22px 2px 8px;}
+  .sec-head h2{font-size:13px;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);font-weight:700;}
+  .ghost-btn{background:none;border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:700;
+    padding:7px 12px;border-radius:999px;}
+  .ghost-btn:active{background:var(--surface);}
+
+  /* ---------- Add dance form ---------- */
+  .form-row{display:flex;gap:8px;margin-bottom:10px;}
+  .fld{background:var(--surface2);border:1px solid var(--line);border-radius:10px;color:var(--text);
+    padding:13px 12px;font-size:16px;width:100%;}
+  .fld::placeholder{color:var(--muted2);}
+  .fld.num{width:104px;flex:none;text-align:center;font-weight:800;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;padding:9px 13px;border-radius:999px;
+    background:var(--surface2);border:1px solid var(--line);font-weight:700;font-size:14px;color:var(--muted);}
+  .chip.on{color:var(--text);border-color:transparent;}
+  .chip .dot{width:10px;height:10px;}
+  .chip-add{border-style:dashed;color:var(--muted);}
+  .add-btn{width:100%;background:var(--gold);color:#1a1300;font-weight:800;font-size:16px;
+    padding:14px;border-radius:12px;letter-spacing:0.01em;}
+  .add-btn:active{filter:brightness(.94);}
+  .add-btn:disabled{opacity:.4;}
+
+  /* ---------- Dance list ---------- */
+  .dance{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);
+    border-radius:13px;padding:13px 14px;margin-bottom:9px;position:relative;overflow:hidden;}
+  .dance .accent{position:absolute;left:0;top:0;bottom:0;width:5px;}
+  .d-main{flex:1;min-width:0;padding-left:4px;}
+  .d-top{display:flex;align-items:center;gap:8px;}
+  .d-num{font-size:13px;font-weight:800;color:var(--muted);}
+  .d-name{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .d-sub{font-size:12.5px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:6px;}
+  .d-right{text-align:right;flex:none;}
+  .d-togo{font-size:20px;font-weight:800;line-height:1;}
+  .d-togo small{font-size:11px;font-weight:700;color:var(--muted);display:block;margin-top:2px;letter-spacing:0.06em;text-transform:uppercase;}
+  .d-eta{font-size:12px;color:var(--muted);margin-top:3px;}
+  .dance.now{border-color:var(--gold);background:linear-gradient(180deg,rgba(246,194,71,.10),var(--surface));}
+  .dance.done{opacity:.5;}
+  .dance.done .d-name{text-decoration:line-through;text-decoration-color:var(--muted2);}
+  .done-sep{display:flex;align-items:center;gap:10px;color:var(--muted2);font-size:11px;
+    letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin:16px 2px 10px;}
+  .done-sep::before,.done-sep::after{content:"";height:1px;background:var(--line);flex:1;}
+  .x-del{background:none;border:none;color:var(--muted2);font-size:20px;padding:6px 4px 6px 10px;line-height:1;flex:none;}
+  .x-del:active{color:var(--danger);}
+
+  .empty{text-align:center;color:var(--muted);padding:26px 16px;font-size:15px;line-height:1.5;}
+  .empty b{color:var(--text);}
+
+  /* ---------- Footer actions ---------- */
+  .foot{margin-top:22px;}
+  .foot .add-btn{background:var(--surface2);color:var(--text);border:1px solid var(--line);}
+  .foot-mini{display:flex;justify-content:center;flex-wrap:wrap;gap:6px 18px;margin-top:14px;}
+  .foot-mini button{background:none;border:none;color:var(--muted);font-size:13px;font-weight:700;padding:6px;}
+  .foot-mini button.warn{color:var(--danger);opacity:.8;}
+
+  /* ---------- Modal ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(6,4,12,.72);display:none;align-items:center;
+    justify-content:center;padding:20px;z-index:50;}
+  .overlay.show{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;
+    width:100%;max-width:380px;}
+  .modal h3{font-size:18px;margin-bottom:8px;}
+  .modal p{color:var(--muted);font-size:14px;margin:0 0 16px;line-height:1.5;}
+  .modal textarea,.modal input.m-in{width:100%;background:var(--surface2);border:1px solid var(--line);
+    border-radius:10px;color:var(--text);padding:12px;font-size:15px;font-family:inherit;}
+  .modal textarea{min-height:120px;resize:vertical;white-space:pre;overflow:auto;}
+  .modal input.m-in{text-align:center;font-size:30px;font-weight:800;}
+  .m-actions{display:flex;gap:10px;margin-top:16px;}
+  .m-btn{flex:1;padding:13px;border-radius:11px;font-weight:800;font-size:15px;}
+  .m-cancel{background:var(--surface2);border:1px solid var(--line);color:var(--text);}
+  .m-ok{background:var(--gold);color:#1a1300;}
+  .m-ok.danger{background:var(--danger);color:#2a0606;}
+  .swatches{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  .sw{width:34px;height:34px;border-radius:50%;border:3px solid transparent;}
+  .sw.sel{border-color:var(--text);}
+
+  .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 22px);transform:translateX(-50%);
+    background:var(--text);color:var(--bg);font-weight:700;font-size:14px;padding:11px 18px;border-radius:999px;
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:60;white-space:nowrap;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  @media (prefers-reduced-motion:reduce){
+    .live-pill .pulse{animation:none;}
+    .toast{transition:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Dance Day</div>
+    <input id="compName" class="comp-name" placeholder="Competition name" maxlength="60">
+    <input id="compDates" class="comp-dates" placeholder="Dates or venue (optional)" maxlength="60">
+  </header>
+
+  <!-- UP NEXT hero -->
+  <div id="hero" class="card hero"></div>
+
+  <!-- NOW ON control -->
+  <div class="card">
+    <div class="nowon-top">
+      <span class="label">Now on stage</span>
+      <span id="freshness" class="freshness"></span>
+    </div>
+    <div class="stepper">
+      <button class="step-btn" id="minus" aria-label="Previous number">−</button>
+      <button class="nowon-num" id="nowonNum" aria-label="Tap to set the current number">0</button>
+      <button class="step-btn" id="plus" aria-label="Next number">+</button>
+    </div>
+    <div class="nowon-hint">Tap the number to jump · use −/＋ as each dance finishes</div>
+    <div id="progressArea" class="progress-wrap"></div>
+    <div class="nowon-meta">
+      <span class="avg-edit">avg
+        <input id="avgMin" type="number" inputmode="decimal" step="0.5" min="0.5" max="20">
+        min / dance
+      </span>
+      <button class="ghost-btn" id="setNowBtn">Set to now</button>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary">
+    <div class="schip"><div class="n" id="sumToGo">0</div><div class="c">To go</div></div>
+    <div class="schip"><div class="n" id="sumDone">0</div><div class="c">Danced</div></div>
+    <div class="schip"><div class="n" id="sumTotal">0</div><div class="c">Total</div></div>
+  </div>
+
+  <!-- Add a dance -->
+  <div class="sec-head">
+    <h2>Add a dance</h2>
+  </div>
+  <div class="card">
+    <div class="form-row">
+      <input id="inNum" class="fld num" type="number" inputmode="numeric" placeholder="#">
+      <input id="inName" class="fld" placeholder="Routine name" maxlength="50">
+    </div>
+    <div id="dancerChips" class="chips"></div>
+    <input id="inStudio" class="fld" placeholder="Studio (optional)" maxlength="40" style="margin-bottom:10px;">
+    <button id="addBtn" class="add-btn" disabled>Add dance</button>
+  </div>
+
+  <!-- Dance list -->
+  <div class="sec-head">
+    <h2>Dances</h2>
+  </div>
+  <div id="list"></div>
+
+  <!-- Footer -->
+  <div class="foot">
+    <button class="add-btn" id="copyBtn">Copy summary</button>
+    <div class="foot-mini">
+      <button id="backupBtn">Back up data</button>
+      <button id="restoreBtn">Restore</button>
+      <button id="resetBtn" class="warn">New competition</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var KEY = "danceComp_v1";
+  var ZW = "\u200B"; // zero-width space, breaks iOS time/number detection
+
+  // ----- Dancer color palette (distinct on dark) -----
+  var PALETTE = ["#FF5C8A","#36CFD6","#B08CFF","#9EE36B","#FFB23E","#5EA8FF"];
+
+  // ----- State -----
+  var state = blank();
+  var ui = { selectedDancer:null };
+
+  function blank(){
+    return {
+      compName:"", compDates:"",
+      currentNumber:0, avgMin:3, totalDances:0,
+      anchorTime:null,           // ISO string of when currentNumber was last set
+      dancers:[],                // {id,name,color}
+      dances:[]                  // {id,number,name,dancerId,studio}
+    };
+  }
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw){ var s = JSON.parse(raw); if(s && typeof s==="object"){ state = Object.assign(blank(), s); } }
+    }catch(e){}
+    if(!Array.isArray(state.dancers)) state.dancers=[];
+    if(!Array.isArray(state.dances)) state.dances=[];
+    if(typeof state.avgMin!=="number"||!state.avgMin) state.avgMin=3;
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }
+    catch(e){ toast("Couldn't save — use Back up data"); }
+  }
+
+  function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+  function comma(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,","); }
+
+  // ----- Time helpers -----
+  function safe(s){ return String(s).replace(/:/g, ":"+ZW); } // protect clock strings
+  function fmtClock(date){
+    var h=date.getHours(), m=date.getMinutes();
+    var ap = h>=12 ? "PM":"AM";
+    var hh = h%12; if(hh===0) hh=12;
+    var mm = m<10 ? "0"+m : ""+m;
+    return safe(hh+":"+mm+" "+ap);
+  }
+  function etaFor(number){
+    if(!state.anchorTime) return null;
+    var togo = number - state.currentNumber;
+    if(togo<0) return null;
+    var t = new Date(new Date(state.anchorTime).getTime() + togo*state.avgMin*60000);
+    return fmtClock(t);
+  }
+  function freshnessText(){
+    if(!state.anchorTime) return "not set yet";
+    var mins = Math.round((Date.now()-new Date(state.anchorTime).getTime())/60000);
+    if(mins<=0) return "updated just now";
+    if(mins===1) return "updated 1 min ago";
+    if(mins<60) return "updated "+mins+" min ago";
+    var hrs = Math.floor(mins/60);
+    return "updated "+hrs+(hrs===1?" hr":" hrs")+" ago";
+  }
+
+  function dancerById(id){ for(var i=0;i<state.dancers.length;i++){ if(state.dancers[i].id===id) return state.dancers[i]; } return null; }
+
+  // ===================== RENDER =====================
+  function render(){
+    $("compName").value = state.compName||"";
+    $("compDates").value = state.compDates||"";
+    $("nowonNum").textContent = comma(state.currentNumber);
+    $("avgMin").value = state.avgMin;
+    $("freshness").textContent = freshnessText();
+
+    renderProgress();
+    renderHero();
+    renderSummary();
+    renderDancerChips();
+    renderList();
+    updateAddBtn();
+  }
+
+  function renderProgress(){
+    var area = $("progressArea");
+    if(!state.totalDances || state.totalDances<=0){
+      area.innerHTML = '<button class="set-total" id="setTotalBtn">+ Set total dances in this comp</button>';
+      $("setTotalBtn").onclick = totalModal;
+      return;
+    }
+    var cur = Math.min(state.currentNumber, state.totalDances);
+    var left = Math.max(0, state.totalDances - state.currentNumber);
+    var pct = Math.max(0, Math.min(100, (cur/state.totalDances)*100));
+    area.innerHTML =
+      '<button class="prog-tap" id="progTap">'+
+        '<div class="prog-label"><span><b>'+comma(state.currentNumber)+'</b> of '+comma(state.totalDances)+'</span>'+
+          '<span>'+comma(left)+' left · '+Math.round(pct)+'%</span></div>'+
+        '<div class="prog-track"><div class="prog-fill" style="width:'+pct+'%"></div></div>'+
+      '</button>';
+    $("progTap").onclick = totalModal;
+  }
+
+  function renderHero(){
+    var hero = $("hero");
+    hero.className = "card hero";
+    // On-stage match?
+    var onNow = state.dances.filter(function(d){ return d.number===state.currentNumber; });
+    var upcoming = state.dances.filter(function(d){ return d.number>state.currentNumber; })
+                              .sort(function(a,b){ return a.number-b.number; });
+
+    if(onNow.length){
+      var d = onNow[0];
+      var dc = dancerById(d.dancerId);
+      hero.className = "card hero onstage";
+      hero.innerHTML =
+        '<div class="hero-accent" style="background:'+(dc?dc.color:"var(--live)")+'"></div>'+
+        '<span class="live-pill big"><span class="pulse"></span>On stage now</span>'+
+        '<div class="hero-dance" style="margin-top:14px">'+
+          '<span class="hero-num">#'+d.number+'</span> '+esc(d.name)+'</div>'+
+        '<div class="hero-dancer">'+(dc?'<span class="dot" style="background:'+dc.color+'"></span>'+esc(dc.name):'<span style="color:var(--muted)">No dancer set</span>')+'</div>';
+      return;
+    }
+
+    if(!upcoming.length){
+      var msg = state.dances.length ? "All your dances are done 🎉" : "Add your dancer's dances below to start the countdown.";
+      hero.innerHTML = '<div class="hero-accent"></div><span class="label">Up next</span>'+
+        '<div class="hero-empty">'+msg+'</div>';
+      return;
+    }
+
+    var n = upcoming[0];
+    var dn = dancerById(n.dancerId);
+    var togo = n.number - state.currentNumber;
+    var eta = etaFor(n.number);
+    hero.innerHTML =
+      '<div class="hero-accent" style="background:'+(dn?dn.color:"var(--gold)")+'"></div>'+
+      '<div class="hero-top">'+
+        '<div class="hero-left">'+
+          '<span class="label">Up next</span>'+
+          '<div class="hero-dancer">'+
+            (dn?'<span class="dot" style="background:'+dn.color+'"></span>'+esc(dn.name):'<span style="color:var(--muted)">No dancer</span>')+
+          '</div>'+
+          '<div class="hero-dance"><span class="hero-num">#'+n.number+'</span> '+esc(n.name)+'</div>'+
+        '</div>'+
+        '<div class="togo-box"><div class="togo-num">'+comma(togo)+'</div><div class="togo-cap">to go</div></div>'+
+      '</div>'+
+      (eta
+        ? '<div class="hero-eta-row"><span class="eta-lbl">around</span><span class="eta-time">'+eta+'</span></div>'
+        : '<div class="hero-eta-row"><span class="eta-lbl" style="color:var(--muted2)">set “now on” for an ETA</span></div>');
+  }
+
+  function renderSummary(){
+    var done = state.dances.filter(function(d){ return d.number<state.currentNumber; }).length;
+    var togo = state.dances.filter(function(d){ return d.number>=state.currentNumber; }).length;
+    $("sumToGo").textContent = togo;
+    $("sumDone").textContent = done;
+    $("sumTotal").textContent = state.dances.length;
+  }
+
+  function renderDancerChips(){
+    var box = $("dancerChips");
+    box.innerHTML = "";
+    state.dancers.forEach(function(dc){
+      var b = document.createElement("button");
+      var on = ui.selectedDancer===dc.id;
+      b.className = "chip"+(on?" on":"");
+      if(on){ b.style.background = dc.color; b.style.color = "#15101e"; }
+      b.innerHTML = '<span class="dot" style="background:'+(on?"#15101e":dc.color)+'"></span>'+esc(dc.name);
+      b.onclick = function(){ ui.selectedDancer = on?null:dc.id; renderDancerChips(); updateAddBtn(); };
+      box.appendChild(b);
+    });
+    var add = document.createElement("button");
+    add.className = "chip chip-add";
+    add.textContent = state.dancers.length ? "+ dancer" : "+ Add your dancer";
+    add.onclick = function(){ addDancerFlow(); };
+    box.appendChild(add);
+  }
+
+  function renderList(){
+    var list = $("list");
+    list.innerHTML = "";
+    if(!state.dances.length){
+      list.innerHTML = '<div class="empty">No dances yet.<br>Add a number and routine name above — '+
+        'then tap a dancer to tag who\u2019s in it.</div>';
+      return;
+    }
+    var sorted = state.dances.slice().sort(function(a,b){ return a.number-b.number; });
+    var upcoming = sorted.filter(function(d){ return d.number>=state.currentNumber; });
+    var done = sorted.filter(function(d){ return d.number<state.currentNumber; }).reverse(); // most recent first
+
+    upcoming.forEach(function(d){ list.appendChild(danceRow(d)); });
+    if(done.length){
+      var sep = document.createElement("div");
+      sep.className = "done-sep";
+      sep.textContent = "Danced";
+      list.appendChild(sep);
+      done.forEach(function(d){ list.appendChild(danceRow(d)); });
+    }
+  }
+
+  function danceRow(d){
+    var dc = dancerById(d.dancerId);
+    var color = dc?dc.color:"var(--line)";
+    var row = document.createElement("div");
+    var isNow = d.number===state.currentNumber;
+    var isDone = d.number<state.currentNumber;
+    row.className = "dance"+(isNow?" now":"")+(isDone?" done":"");
+
+    var sub = [];
+    if(dc) sub.push('<span class="dot" style="background:'+dc.color+';width:8px;height:8px"></span>'+esc(dc.name));
+    if(d.studio) sub.push(esc(d.studio));
+    var subHtml = sub.length ? '<div class="d-sub">'+sub.join('<span style="color:var(--muted2)">·</span>')+'</div>' : "";
+
+    var right;
+    if(isNow){
+      right = '<div class="d-right"><span class="live-pill" style="font-size:10px;padding:4px 8px"><span class="pulse"></span>Now</span></div>';
+    }else if(isDone){
+      right = '<div class="d-right"><div class="d-eta">done</div></div>';
+    }else{
+      var togo = d.number - state.currentNumber;
+      var eta = etaFor(d.number);
+      right = '<div class="d-right"><div class="d-togo">'+togo+'<small>to go</small></div>'+
+              (eta?'<div class="d-eta">~'+eta+'</div>':'')+'</div>';
+    }
+
+    row.innerHTML =
+      '<div class="accent" style="background:'+color+'"></div>'+
+      '<div class="d-main"><div class="d-top"><span class="d-num">#'+d.number+'</span>'+
+        '<span class="d-name">'+esc(d.name)+'</span></div>'+subHtml+'</div>'+
+      right+
+      '<button class="x-del" aria-label="Delete">×</button>';
+
+    row.querySelector(".x-del").onclick = function(){
+      confirmModal("Delete dance?", "#"+d.number+" "+d.name+" will be removed.", "Delete", true, function(){
+        state.dances = state.dances.filter(function(x){ return x.id!==d.id; });
+        save(); render(); toast("Deleted");
+      });
+    };
+    return row;
+  }
+
+  function updateAddBtn(){
+    var num = $("inNum").value.trim();
+    var name = $("inName").value.trim();
+    $("addBtn").disabled = !(num!=="" && name!=="");
+  }
+
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+
+  // ===================== ACTIONS =====================
+  function addDance(){
+    var num = parseInt($("inNum").value,10);
+    var name = $("inName").value.trim();
+    if(isNaN(num) || !name) return;
+    var studio = $("inStudio").value.trim();
+    state.dances.push({ id:uid(), number:num, name:name, dancerId:ui.selectedDancer||null, studio:studio });
+    // remember studio as the running default
+    $("inNum").value = ""; $("inName").value = "";
+    save(); render();
+    $("inNum").focus();
+    toast("Added #"+num);
+  }
+
+  function setNowOn(n){
+    n = Math.max(0, n|0);
+    state.currentNumber = n;
+    state.anchorTime = new Date().toISOString();
+    save(); render();
+  }
+
+  function addDancerFlow(){
+    if(state.dancers.length>=8){ toast("That's plenty of dancers"); return; }
+    var color = PALETTE[state.dancers.length % PALETTE.length];
+    dancerModal(color);
+  }
+
+  // ===================== MODALS =====================
+  var pendingOk = null;
+  function openModal(html){ $("modal").innerHTML = html; $("overlay").classList.add("show"); }
+  function closeModal(){ $("overlay").classList.remove("show"); $("modal").innerHTML=""; pendingOk=null; }
+
+  function confirmModal(title, msg, okLabel, danger, onOk){
+    pendingOk = onOk;
+    openModal(
+      '<h3>'+esc(title)+'</h3><p>'+esc(msg)+'</p>'+
+      '<div class="m-actions">'+
+        '<button class="m-btn m-cancel" id="mCancel">Cancel</button>'+
+        '<button class="m-btn m-ok'+(danger?" danger":"")+'" id="mOk">'+esc(okLabel)+'</button>'+
+      '</div>');
+    $("mCancel").onclick = closeModal;
+    $("mOk").onclick = function(){ var fn=pendingOk; closeModal(); if(fn) fn(); };
+  }
+
+  function numberModal(){
+    openModal(
+      '<h3>Now on stage</h3>'+
+      '<p>Type the number currently on stage. Everything recalculates from here.</p>'+
+      '<input class="m-in" id="mNum" type="number" inputmode="numeric" value="'+state.currentNumber+'">'+
+      '<div class="m-actions">'+
+        '<button class="m-btn m-cancel" id="mCancel">Cancel</button>'+
+        '<button class="m-btn m-ok" id="mOk">Set</button>'+
+      '</div>');
+    var inp = $("mNum");
+    setTimeout(function(){ inp.focus(); inp.select(); },50);
+    $("mCancel").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var v = parseInt(inp.value,10);
+      closeModal();
+      if(!isNaN(v)) setNowOn(v);
+    };
+  }
+
+  function totalModal(){
+    openModal(
+      '<h3>Total dances in this comp</h3>'+
+      '<p>Roughly how many dances run across the whole competition. Powers the progress bar — leave it if you\u2019re not sure.</p>'+
+      '<input class="m-in" id="mTotal" type="number" inputmode="numeric" value="'+(state.totalDances||"")+'" placeholder="e.g. 1000">'+
+      '<div class="m-actions">'+
+        '<button class="m-btn m-cancel" id="mCancel">Cancel</button>'+
+        '<button class="m-btn m-ok" id="mOk">Save</button>'+
+      '</div>');
+    var inp = $("mTotal");
+    setTimeout(function(){ inp.focus(); inp.select(); },50);
+    $("mCancel").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var v = parseInt(inp.value,10);
+      closeModal();
+      state.totalDances = (isNaN(v)||v<0) ? 0 : v;
+      save(); render();
+    };
+  }
+
+  function dancerModal(color){
+    var sw = PALETTE.map(function(c){
+      return '<button class="sw'+(c===color?" sel":"")+'" data-c="'+c+'" style="background:'+c+'"></button>';
+    }).join("");
+    openModal(
+      '<h3>Add a dancer</h3>'+
+      '<p>Just a name and a color so their dances stand out.</p>'+
+      '<input class="m-in" id="mName" style="font-size:18px;text-align:left" placeholder="Name" maxlength="20">'+
+      '<div class="swatches">'+sw+'</div>'+
+      '<div class="m-actions">'+
+        '<button class="m-btn m-cancel" id="mCancel">Cancel</button>'+
+        '<button class="m-btn m-ok" id="mOk">Add</button>'+
+      '</div>');
+    var chosen = color;
+    var name = $("mName");
+    setTimeout(function(){ name.focus(); },50);
+    Array.prototype.forEach.call($("modal").querySelectorAll(".sw"), function(b){
+      b.onclick = function(){
+        chosen = b.getAttribute("data-c");
+        Array.prototype.forEach.call($("modal").querySelectorAll(".sw"),function(x){ x.classList.remove("sel"); });
+        b.classList.add("sel");
+      };
+    });
+    $("mCancel").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var nm = name.value.trim();
+      if(!nm){ name.focus(); return; }
+      var id = uid();
+      state.dancers.push({ id:id, name:nm, color:chosen });
+      ui.selectedDancer = id;
+      closeModal(); save(); render();
+    };
+  }
+
+  function backupModal(){
+    var data = JSON.stringify(state);
+    openModal(
+      '<h3>Back up data</h3>'+
+      '<p>This is your whole competition as text. Copy it and paste somewhere safe (Notes, an email to yourself). Restore it anytime.</p>'+
+      '<textarea id="mData" readonly>'+esc(data)+'</textarea>'+
+      '<div class="m-actions">'+
+        '<button class="m-btn m-cancel" id="mCancel">Close</button>'+
+        '<button class="m-btn m-ok" id="mOk">Copy</button>'+
+      '</div>');
+    $("mCancel").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var ta = $("mData"); ta.removeAttribute("readonly"); ta.select();
+      var ok=false;
+      try{ ok = document.execCommand("copy"); }catch(e){}
+      if(navigator.clipboard){ navigator.clipboard.writeText(data).catch(function(){}); ok=true; }
+      ta.setAttribute("readonly","readonly");
+      toast(ok?"Copied":"Select the text and copy");
+    };
+  }
+
+  function restoreModal(){
+    openModal(
+      '<h3>Restore data</h3>'+
+      '<p>Paste a backup below to replace everything currently in the app.</p>'+
+      '<textarea id="mData" placeholder="Paste your backup text here"></textarea>'+
+      '<div class="m-actions">'+
+        '<button class="m-btn m-cancel" id="mCancel">Cancel</button>'+
+        '<button class="m-btn m-ok danger" id="mOk">Restore</button>'+
+      '</div>');
+    $("mCancel").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var txt = $("mData").value.trim();
+      if(!txt){ return; }
+      try{
+        var s = JSON.parse(txt);
+        if(!s || typeof s!=="object" || !Array.isArray(s.dances)) throw new Error("bad");
+        state = Object.assign(blank(), s);
+        ui.selectedDancer = null;
+        closeModal(); save(); render(); toast("Restored");
+      }catch(e){ toast("That didn't look like a backup"); }
+    };
+  }
+
+  function copySummary(){
+    var lines = [];
+    lines.push((state.compName||"Dance competition").trim());
+    if(state.compDates) lines.push(state.compDates);
+    lines.push("Now on #"+state.currentNumber+(state.totalDances>0?" of "+state.totalDances:"")+"  ("+freshnessText().replace(ZW,"")+")");
+    lines.push("");
+    var sorted = state.dances.slice().sort(function(a,b){ return a.number-b.number; });
+    if(!sorted.length){ lines.push("(no dances added yet)"); }
+    sorted.forEach(function(d){
+      var dc = dancerById(d.dancerId);
+      var who = dc?dc.name:"";
+      var status;
+      if(d.number<state.currentNumber) status="danced";
+      else if(d.number===state.currentNumber) status="ON NOW";
+      else{
+        var togo = d.number-state.currentNumber;
+        var eta = etaFor(d.number);
+        status = togo+" to go"+(eta?" (~"+eta.replace(new RegExp(ZW,"g"),"")+")":"");
+      }
+      lines.push("#"+d.number+"  "+d.name+(who?"  — "+who:"")+"  ·  "+status);
+    });
+    var text = lines.join("\n");
+    var ok=false;
+    if(navigator.clipboard){ navigator.clipboard.writeText(text).then(function(){ toast("Summary copied"); }).catch(function(){ fallbackCopy(text); }); return; }
+    fallbackCopy(text);
+  }
+  function fallbackCopy(text){
+    openModal('<h3>Copy summary</h3><p>Select all and copy.</p>'+
+      '<textarea id="mData" readonly style="min-height:200px">'+esc(text)+'</textarea>'+
+      '<div class="m-actions"><button class="m-btn m-ok" id="mOk">Done</button></div>');
+    var ta=$("mData"); ta.focus(); ta.select();
+    $("mOk").onclick = closeModal;
+  }
+
+  // ----- Toast -----
+  var toastTimer=null;
+  function toast(msg){
+    var t=$("toast"); t.textContent=msg; t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove("show"); },1600);
+  }
+
+  // ===================== WIRING =====================
+  function init(){
+    load();
+    render();
+
+    $("compName").addEventListener("input", function(){ state.compName=this.value; save(); });
+    $("compDates").addEventListener("input", function(){ state.compDates=this.value; save(); });
+
+    $("minus").onclick = function(){ if(state.currentNumber>0) setNowOn(state.currentNumber-1); };
+    $("plus").onclick  = function(){ setNowOn(state.currentNumber+1); };
+    $("nowonNum").onclick = numberModal;
+    $("setNowBtn").onclick = function(){
+      // re-anchor the clock without changing the number (absorbs a pause)
+      state.anchorTime = new Date().toISOString(); save(); render(); toast("Clock re-anchored");
+    };
+
+    $("avgMin").addEventListener("change", function(){
+      var v = parseFloat(this.value);
+      if(isNaN(v)||v<=0){ v=3; }
+      v = Math.min(20, Math.max(0.5, v));
+      state.avgMin = v; this.value=v; save(); render();
+    });
+
+    $("inNum").addEventListener("input", updateAddBtn);
+    $("inName").addEventListener("input", updateAddBtn);
+    $("inName").addEventListener("keydown", function(e){ if(e.key==="Enter" && !$("addBtn").disabled){ addDance(); } });
+    $("addBtn").onclick = addDance;
+
+    $("copyBtn").onclick = copySummary;
+    $("backupBtn").onclick = backupModal;
+    $("restoreBtn").onclick = restoreModal;
+    $("resetBtn").onclick = function(){
+      confirmModal("Start a new competition?",
+        "This clears the current number, all dances, and dancers. Back up first if you want to keep this one.",
+        "Clear it", true, function(){
+          state = blank(); ui.selectedDancer=null; save(); render(); toast("Ready for a new comp");
+        });
+    };
+
+    $("overlay").addEventListener("click", function(e){ if(e.target===$("overlay")) closeModal(); });
+
+    // keep "updated X min ago" + ETAs honest as real time passes
+    setInterval(function(){
+      $("freshness").textContent = freshnessText();
+    }, 30000);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
