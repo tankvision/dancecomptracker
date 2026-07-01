@@ -131,6 +131,18 @@
   .avg-edit input{width:48px;background:var(--surface2);border:1px solid var(--line);border-radius:8px;
     color:var(--text);font-weight:700;text-align:center;padding:6px 4px;font-size:15px;}
 
+  /* auto-advance toggle */
+  .nowon-auto{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
+  .auto-lbl{font-size:14px;font-weight:800;}
+  .auto-sub{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-top:2px;}
+  .switch{width:50px;height:29px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);
+    position:relative;transition:background .2s,border-color .2s;flex:none;padding:0;}
+  .switch .knob{position:absolute;top:2px;left:2px;width:23px;height:23px;border-radius:50%;
+    background:var(--muted);transition:transform .2s,background .2s;}
+  .switch.on{background:var(--gold);border-color:transparent;}
+  .switch.on .knob{transform:translateX(21px);background:#1a1300;}
+
   /* ---------- Comp progress ---------- */
   .progress-wrap{margin-top:14px;}
   .prog-tap{display:block;width:100%;background:none;border:none;text-align:left;padding:0;}
@@ -277,6 +289,10 @@
     </div>
     <div class="nowon-hint">Tap the number to jump · use −/＋ as each dance finishes</div>
     <div id="progressArea" class="progress-wrap"></div>
+    <div class="nowon-auto">
+      <span class="auto-lbl">Auto-advance<span id="autoSub" class="auto-sub">estimated from your pace</span></span>
+      <button id="autoToggle" class="switch" role="switch" aria-checked="false" aria-label="Auto-advance"><span class="knob"></span></button>
+    </div>
     <div class="nowon-meta">
       <span class="avg-edit">avg
         <input id="avgMin" type="number" inputmode="decimal" step="0.5" min="0.5" max="20">
@@ -374,7 +390,8 @@
       collapseBreaks:true,
       collapseList:false,        // timeline open; Danced sub-group collapsed
       collapseToGo:false,
-      collapseDanced:true
+      collapseDanced:true,
+      autoForward:false          // auto-advance "now on" from elapsed time
     };
   }
 
@@ -444,6 +461,7 @@
 
     renderProgress();
     renderBreakBanner();
+    renderAuto();
     renderHero();
     renderSummary();
     renderDancerChips();
@@ -767,6 +785,54 @@
     save(); render();
   }
 
+  // ----- Auto-advance -----
+  function isDancerDance(num){
+    for(var i=0;i<state.dances.length;i++){ if(state.dances[i].number===num && state.dances[i].dancerId) return true; }
+    return false;
+  }
+  function nextDancerAhead(num){
+    var best=null;
+    for(var i=0;i<state.dances.length;i++){
+      var d=state.dances[i];
+      if(d.dancerId && d.number>num && (best===null || d.number<best)) best=d.number;
+    }
+    return best;
+  }
+  function breakAfterMin(num){
+    for(var i=0;i<state.breaks.length;i++){ if(state.breaks[i].afterNumber===num) return (+state.breaks[i].minutes||0); }
+    return 0;
+  }
+  function autoTick(){
+    if(!state.autoForward || !state.anchorTime) return;
+    if(isDancerDance(state.currentNumber)) return;         // parked on a dancer → hold
+    var now = Date.now();
+    var n = state.currentNumber;
+    var t = new Date(state.anchorTime).getTime();
+    var cap = nextDancerAhead(n);                          // don't advance past your dancer
+    var moved = false;
+    while(true){
+      var step = (state.avgMin + breakAfterMin(n)) * 60000; // ms from start of n to start of n+1
+      if(now - t >= step){
+        n += 1; t += step; moved = true;
+        if(cap!==null && n>=cap){ n = cap; break; }        // land on the dancer and stop
+      } else break;
+    }
+    if(moved && n!==state.currentNumber){
+      state.currentNumber = n;
+      state.anchorTime = new Date(t).toISOString();
+      save(); render();
+    }
+  }
+  function renderAuto(){
+    var sw=$("autoToggle");
+    sw.classList.toggle("on", !!state.autoForward);
+    sw.setAttribute("aria-checked", state.autoForward?"true":"false");
+    var sub=$("autoSub");
+    if(!state.autoForward) sub.textContent="estimated from your pace";
+    else if(isDancerDance(state.currentNumber)) sub.textContent="holding on your dancer — tap ＋ to continue";
+    else sub.textContent="advancing automatically";
+  }
+
   function addDancerFlow(){
     if(state.dancers.length>=8){ toast("That's plenty of dancers"); return; }
     var color = PALETTE[state.dancers.length % PALETTE.length];
@@ -990,6 +1056,13 @@
     $("toggleAdd").onclick = function(){ state.collapseAdd=!state.collapseAdd; save(); applyCollapse(); };
     $("toggleBreaks").onclick = function(){ state.collapseBreaks=!state.collapseBreaks; save(); applyCollapse(); };
     $("toggleList").onclick = function(){ state.collapseList=!state.collapseList; save(); applyCollapse(); };
+    $("autoToggle").onclick = function(){
+      state.autoForward = !state.autoForward;
+      if(state.autoForward && !state.anchorTime){ state.anchorTime = new Date().toISOString(); }
+      save(); render();
+      if(state.autoForward){ toast("Auto-advance on"); autoTick(); }
+      else toast("Auto-advance off");
+    };
     $("brkAfter").addEventListener("input", updateBrkBtn);
     $("brkMin").addEventListener("input", updateBrkBtn);
     $("brkMin").addEventListener("keydown", function(e){ if(e.key==="Enter" && !$("addBrkBtn").disabled){ addBreak(); } });
@@ -1008,10 +1081,13 @@
 
     $("overlay").addEventListener("click", function(e){ if(e.target===$("overlay")) closeModal(); });
 
-    // keep "updated X min ago" + ETAs honest as real time passes
+    autoTick(); // catch up immediately on open
+
+    // advance (if auto is on) + keep "updated X min ago" honest
     setInterval(function(){
+      autoTick();
       $("freshness").textContent = freshnessText();
-    }, 30000);
+    }, 15000);
   }
 
   init();
