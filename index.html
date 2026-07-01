@@ -144,6 +144,17 @@
   /* ---------- Section header ---------- */
   .sec-head{display:flex;align-items:center;justify-content:space-between;margin:22px 2px 8px;}
   .sec-head h2{font-size:13px;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);font-weight:700;}
+  .sec-toggle{width:100%;background:none;border:none;cursor:pointer;}
+  .sec-toggle .chev{color:var(--muted);font-size:13px;transition:transform .2s;}
+  .sec-toggle.open .chev{transform:rotate(180deg);}
+  .collapsible.collapsed{display:none;}
+  .break-banner{display:flex;align-items:center;gap:11px;
+    background:linear-gradient(180deg,rgba(246,194,71,.17),rgba(246,194,71,.06));
+    border:1px solid var(--gold-dim);border-radius:14px;padding:13px 15px;margin:12px 0 0;}
+  .break-banner .bb-pulse{width:9px;height:9px;border-radius:50%;background:var(--gold);animation:pulse 1.1s infinite;flex:none;}
+  .break-banner .bb-txt{font-weight:800;font-size:15px;color:var(--gold);letter-spacing:.02em;}
+  .break-banner .bb-min{margin-left:auto;font-size:13px;font-weight:700;color:var(--text);
+    background:var(--surface2);padding:5px 11px;border-radius:999px;flex:none;}
   .ghost-btn{background:none;border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:700;
     padding:7px 12px;border-radius:999px;}
   .ghost-btn:active{background:var(--surface);}
@@ -238,6 +249,9 @@
     <input id="compDates" class="comp-dates" placeholder="Dates or venue (optional)" maxlength="60">
   </header>
 
+  <!-- Active break/awards banner -->
+  <div id="breakBanner"></div>
+
   <!-- UP NEXT hero -->
   <div id="hero" class="card hero"></div>
 
@@ -271,10 +285,10 @@
   </div>
 
   <!-- Add a dance -->
-  <div class="sec-head">
-    <h2>Add a dance</h2>
-  </div>
-  <div class="card">
+  <button class="sec-head sec-toggle" id="toggleAdd" type="button">
+    <h2>Add a dance</h2><span class="chev">▾</span>
+  </button>
+  <div class="card collapsible" id="addCard">
     <div class="form-row">
       <input id="inNum" class="fld num" type="number" inputmode="numeric" placeholder="#">
       <input id="inName" class="fld" placeholder="Routine name" maxlength="50">
@@ -285,10 +299,10 @@
   </div>
 
   <!-- Breaks & awards -->
-  <div class="sec-head">
-    <h2>Breaks &amp; awards</h2>
-  </div>
-  <div class="card">
+  <button class="sec-head sec-toggle" id="toggleBreaks" type="button">
+    <h2>Breaks &amp; awards</h2><span class="chev">▾</span>
+  </button>
+  <div class="card collapsible" id="breakCard">
     <div class="seg">
       <button id="segJudges" class="on" data-type="judges">Judges break</button>
       <button id="segAwards" data-type="awards">Awards</button>
@@ -346,7 +360,9 @@
       anchorTime:null,           // ISO string of when currentNumber was last set
       dancers:[],                // {id,name,color}
       dances:[],                 // {id,number,name,dancerId,studio}
-      breaks:[]                  // {id,afterNumber,type:'judges'|'awards',minutes}
+      breaks:[],                 // {id,afterNumber,type:'judges'|'awards',minutes}
+      collapseAdd:true,          // sections collapsed by default
+      collapseBreaks:true
     };
   }
 
@@ -415,13 +431,38 @@
     $("freshness").textContent = freshnessText();
 
     renderProgress();
+    renderBreakBanner();
     renderHero();
     renderSummary();
     renderDancerChips();
     renderBreakForm();
     renderBreakList();
     renderList();
+    applyCollapse();
     updateAddBtn();
+  }
+
+  function applyCollapse(){
+    $("addCard").classList.toggle("collapsed", !!state.collapseAdd);
+    $("toggleAdd").classList.toggle("open", !state.collapseAdd);
+    $("breakCard").classList.toggle("collapsed", !!state.collapseBreaks);
+    $("toggleBreaks").classList.toggle("open", !state.collapseBreaks);
+  }
+
+  function renderBreakBanner(){
+    var el = $("breakBanner");
+    var b = null;
+    for(var i=0;i<state.breaks.length;i++){
+      if(state.breaks[i].afterNumber===state.currentNumber){ b=state.breaks[i]; break; }
+    }
+    if(!b){ el.innerHTML=""; return; }
+    var isAwards = b.type==="awards";
+    el.innerHTML =
+      '<div class="break-banner">'+
+        '<span class="bb-pulse"></span>'+
+        '<span class="bb-txt">'+(isAwards?"\uD83C\uDFC6 Awards in progress":"\u23F8 Judges break")+'</span>'+
+        '<span class="bb-min">~'+(+b.minutes||0)+' min</span>'+
+      '</div>';
   }
 
   function renderProgress(){
@@ -899,8 +940,9 @@
     $("inName").addEventListener("keydown", function(e){ if(e.key==="Enter" && !$("addBtn").disabled){ addDance(); } });
     $("addBtn").onclick = addDance;
 
-    $("segJudges").onclick = function(){ ui.breakType="judges"; renderBreakForm(); };
-    $("segAwards").onclick = function(){ ui.breakType="awards"; renderBreakForm(); };
+    $("segJudges").onclick = function(){ ui.breakType="judges"; renderBreakForm(); };    $("segAwards").onclick = function(){ ui.breakType="awards"; renderBreakForm(); };
+    $("toggleAdd").onclick = function(){ state.collapseAdd=!state.collapseAdd; save(); applyCollapse(); };
+    $("toggleBreaks").onclick = function(){ state.collapseBreaks=!state.collapseBreaks; save(); applyCollapse(); };
     $("brkAfter").addEventListener("input", updateBrkBtn);
     $("brkMin").addEventListener("input", updateBrkBtn);
     $("brkMin").addEventListener("keydown", function(e){ if(e.key==="Enter" && !$("addBrkBtn").disabled){ addBreak(); } });
